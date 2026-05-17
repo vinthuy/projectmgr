@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: workitem-system
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/workitem?characterEncoding=utf8&useUnicode=true
+    username: postgres
+    password: 123
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      continue-on-error: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.workitem.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: true
+      logic-not-delete-value: false
+
+server:
+  port: 8080
+
+# CodeArts Req API配置
+codearts:
+  api:
+    base-url: https://openapi.huaweicloud.com
+    token: ${CODEARTS_API_TOKEN:your-api-token}
+    project-id: ${CODEARTS_PROJECT_ID:your-project-id}
+
+# Agent配置
+agent:
+  max-context-size: 10
+  max-retry: 3
+  timeout: 30000

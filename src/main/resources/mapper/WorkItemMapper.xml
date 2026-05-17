@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.workitem.mapper.WorkItemMapper">
+
+    <select id="selectDynamicColumns" resultType="map">
+        SELECT
+            id,
+            title,
+            description,
+            status,
+            priority,
+            assignee,
+            created_at,
+            updated_at
+            <if test="columns != null and columns.size > 0">
+                <foreach collection="columns" item="col" separator=",">
+                    , custom_fields -&gt;&gt; #{col} as ${col}
+                </foreach>
+            </if>
+        FROM work_item
+        WHERE deleted = false
+        <if test="condition != null and condition.size > 0">
+            <foreach collection="condition.entrySet()" item="entry" separator=" " open="AND" close="">
+                <if test="entry.value != null">
+                    <choose>
+                        <when test="entry.key == 'status'">
+                            status = #{entry.value}
+                        </when>
+                        <when test="entry.key == 'priority'">
+                            priority = #{entry.value}
+                        </when>
+                        <when test="entry.key == 'assignee'">
+                            assignee = #{entry.value}
+                        </when>
+                        <otherwise>
+                            custom_fields -&gt;&gt; #{entry.key} = #{entry.value}
+                        </otherwise>
+                    </choose>
+                </if>
+            </foreach>
+        </if>
+        ORDER BY created_at DESC
+        <if test="pageSize > 0">
+            LIMIT #{pageSize} OFFSET ${(page - 1) * pageSize}
+        </if>
+    </select>
+
+    <select id="countDynamicColumns" resultType="long">
+        SELECT COUNT(*) FROM work_item
+        WHERE deleted = false
+        <if test="condition != null and condition.size > 0">
+            <foreach collection="condition.entrySet()" item="entry" separator=" " open="AND" close="">
+                <if test="entry.value != null">
+                    <choose>
+                        <when test="entry.key == 'status'">
+                            status = #{entry.value}
+                        </when>
+                        <when test="entry.key == 'priority'">
+                            priority = #{entry.value}
+                        </when>
+                        <when test="entry.key == 'assignee'">
+                            assignee = #{entry.value}
+                        </when>
+                        <otherwise>
+                            custom_fields -&gt;&gt; #{entry.key} = #{entry.value}
+                        </otherwise>
+                    </choose>
+                </if>
+            </foreach>
+        </if>
+    </select>
+
+</mapper>
