@@ -2,19 +2,28 @@ spring:
   application:
     name: workitem-system
   datasource:
-    driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/workitem?characterEncoding=utf8&useUnicode=true
-    username: postgres
-    password: 123
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:workitem;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
   sql:
     init:
       mode: always
-      schema-locations: classpath:schema.sql
+      schema-locations: classpath:schema-h2.sql
       continue-on-error: false
   jackson:
     serialization:
       write-dates-as-timestamps: false
     default-property-inclusion: non_null
+  http:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
 
 mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
@@ -30,6 +39,11 @@ mybatis-plus:
 
 server:
   port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
 
 # CodeArts Req API配置
 codearts:
@@ -43,3 +57,9 @@ agent:
   max-context-size: 10
   max-retry: 3
   timeout: 30000
+
+# 通义千问API配置
+qwen:
+  api:
+    key: ${QWEN_API_KEY:your-api-key}
+    model: qwen-turbo

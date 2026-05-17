@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
-@Component
+@Component("agentCodeArtsReqClient")
 public class CodeArtsReqClient {
     
     @Value("${codearts.api.base-url:https://openapi.huaweicloud.com}")

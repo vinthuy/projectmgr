@@ -7,10 +7,10 @@
       </div>
       <el-menu
         :default-active="activeMenu"
-        router
         background-color="#304156"
         text-color="#bfcbd9"
         active-text-color="#409EFF"
+        @select="handleMenuSelect"
       >
         <!-- 项目作业管理系统 -->
         <el-sub-menu index="project">
@@ -98,13 +98,21 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Briefcase, Setting, Odometer, List, OfficeBuilding, Document, Grid, Connection, Memo, Link, Monitor, Files, ChatDotRound } from '@element-plus/icons-vue'
 
 const route = useRoute()
+const router = useRouter()
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => route.meta.title || '工作项管理系统')
+
+const handleMenuSelect = (index) => {
+  console.log('Menu clicked:', index)
+  if (index && index !== route.path) {
+    router.push(index)
+  }
+}
 </script>
 
 <style scoped>

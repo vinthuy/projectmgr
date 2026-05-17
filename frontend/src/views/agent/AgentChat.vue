@@ -8,7 +8,7 @@
         </template>
       </el-page-header>
       <div class="header-actions">
-        <el-button :icon="BarChart" @click="showStats = !showStats">统计</el-button>
+        <el-button :icon="TrendCharts" @click="showStats = !showStats">统计</el-button>
         <el-button :icon="Setting" @click="showSettings = true">设置</el-button>
       </div>
     </div>
@@ -76,40 +76,91 @@
               <div class="message-bubble">
                 <div class="message-text" v-html="renderMarkdown(msg.content)"></div>
                 
-                <!-- 工作项卡片 -->
-                <div v-if="msg.workItem" class="work-item-card">
+                <!-- 单个工作项卡片 -->
+                <div v-if="msg.workItems && msg.workItems.length === 1" class="work-item-card">
                   <div class="card-header">
-                    <span class="card-title">📋 {{ msg.workItem.id }}: {{ msg.workItem.title }}</span>
+                    <span class="card-title">📋 {{ msg.workItems[0].issueKey }}: {{ msg.workItems[0].title }}</span>
                   </div>
                   <div class="card-body">
                     <div class="card-field">
                       <label>状态:</label>
-                      <el-tag :type="getStatusType(msg.workItem.status)" size="small">
-                        {{ getStatusText(msg.workItem.status) }}
+                      <el-tag :type="getStatusType(msg.workItems[0].status)" size="small">
+                        {{ getStatusText(msg.workItems[0].status) }}
                       </el-tag>
                     </div>
                     <div class="card-field">
                       <label>优先级:</label>
-                      <el-tag :type="getPriorityType(msg.workItem.priority)" size="small">
-                        {{ getPriorityText(msg.workItem.priority) }}
+                      <el-tag :type="getPriorityType(msg.workItems[0].priority)" size="small">
+                        {{ getPriorityText(msg.workItems[0].priority) }}
                       </el-tag>
                     </div>
                     <div class="card-field">
                       <label>负责人:</label>
-                      <span>{{ msg.workItem.assignee || '未分配' }}</span>
-                    </div>
-                    <div class="card-field">
-                      <label>截止日期:</label>
-                      <span>{{ msg.workItem.dueDate || '无' }}</span>
+                      <span>{{ msg.workItems[0].assignee || '未分配' }}</span>
                     </div>
                   </div>
                   <div class="card-actions">
-                    <el-button size="small" @click="viewWorkItem(msg.workItem.id)">
+                    <el-button size="small" @click="viewWorkItem(msg.workItems[0].issueKey)">
                       查看详情
                     </el-button>
-                    <el-button size="small" type="primary" @click="editWorkItem(msg.workItem.id)">
+                    <el-button size="small" type="primary" @click="editWorkItem(msg.workItems[0].issueKey)">
                       编辑
                     </el-button>
+                  </div>
+                </div>
+
+                <!-- 工作项列表卡片 -->
+                <div v-else-if="msg.workItems && msg.workItems.length > 1" class="work-item-list-card">
+                  <div class="card-header">
+                    <span class="card-title">📋 找到 {{ msg.workItems.length }} 个工作项</span>
+                  </div>
+                  <div class="card-body">
+                    <div v-for="(item, index) in msg.workItems" :key="index" class="list-item">
+                      <div class="item-header">
+                        <span class="item-key">{{ item.issueKey }}</span>
+                        <el-tag :type="getStatusType(item.status)" size="small">
+                          {{ getStatusText(item.status) }}
+                        </el-tag>
+                      </div>
+                      <div class="item-title">{{ item.title }}</div>
+                      <div class="item-meta">
+                        <el-tag :type="getPriorityType(item.priority)" size="small">
+                          {{ getPriorityText(item.priority) }}
+                        </el-tag>
+                        <span v-if="item.assignee" class="assignee">👤 {{ item.assignee }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 统计卡片 -->
+                <div v-if="msg.stats" class="stats-card">
+                  <div class="card-header">
+                    <span class="card-title">📊 {{ msg.stats.projectKey }} 项目统计</span>
+                  </div>
+                  <div class="card-body">
+                    <div class="stat-total">
+                      <div class="total-number">{{ msg.stats.total }}</div>
+                      <div class="total-label">总计</div>
+                    </div>
+                    <div class="stat-section">
+                      <h4>按类型</h4>
+                      <div class="stat-items">
+                        <div v-for="(count, type) in msg.stats.byType" :key="type" class="stat-item">
+                          <span class="stat-label">{{ type }}</span>
+                          <span class="stat-value">{{ count }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="stat-section">
+                      <h4>按状态</h4>
+                      <div class="stat-items">
+                        <div v-for="(count, status) in msg.stats.byStatus" :key="status" class="stat-item">
+                          <span class="stat-label">{{ getStatusText(status) }}</span>
+                          <span class="stat-value">{{ count }}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -216,7 +267,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { BarChart, Setting, Close, Promotion } from '@element-plus/icons-vue'
+import { TrendCharts, Setting, Close, Promotion } from '@element-plus/icons-vue'
 import MarkdownIt from 'markdown-it'
 import { sendMessage as sendAgentMessage, getSessions, deleteSession as deleteSessionAPI, getMessageHistory } from '@/api/agent'
 
@@ -259,7 +310,9 @@ const loadSessions = async () => {
     const result = await getSessions()
     sessions.value = result.sessions || []
   } catch (error) {
-    ElMessage.error('加载会话失败: ' + error.message)
+    console.error('加载会话失败:', error)
+    ElMessage.warning('加载会话失败，将创建新会话')
+    sessions.value = []
   }
 }
 
@@ -288,7 +341,7 @@ const switchSession = async (sessionId) => {
   // 加载历史消息
   try {
     const history = await getMessageHistory(sessionId)
-    if (history.messages && history.messages.length > 0) {
+    if (history && history.messages && history.messages.length > 0) {
       messages.value = history.messages.map(msg => ({
         id: msg.messageId,
         role: msg.role,
@@ -299,6 +352,7 @@ const switchSession = async (sessionId) => {
     }
   } catch (error) {
     console.error('加载历史消息失败:', error)
+    // 不阻塞页面，继续显示空消息列表
   }
 }
 
@@ -351,19 +405,21 @@ const sendMessage = async () => {
       }
     })
     
+    // 处理后端返回的数据
     const aiMessage = {
       id: Date.now() + 1,
       role: 'assistant',
-      content: response.content,
-      workItem: response.workItems?.[0],
-      suggestedActions: response.suggestions
+      content: response.reply || response.content || '操作完成',
+      workItems: response.result?.items || (response.result?.issueKey ? [response.result] : []),
+      stats: response.result?.total !== undefined && response.result?.byType ? response.result : null,
+      suggestedActions: response.suggestions || generateSuggestedActions(response.action)
     }
     
     messages.value.push(aiMessage)
     
     // 更新上下文
-    if (response.workItem) {
-      updateContext(response.workItem)
+    if (response.result) {
+      updateContext(response.result)
     }
     
   } catch (error) {
@@ -374,6 +430,33 @@ const sendMessage = async () => {
     await nextTick()
     scrollToBottom()
   }
+}
+
+// 根据操作类型生成建议动作
+const generateSuggestedActions = (action) => {
+  const actionsMap = {
+    'QUERY': [
+      { label: '🔍 筛选结果', action: 'filter' },
+      { label: '📊 查看统计', action: 'analyze' }
+    ],
+    'CREATE': [
+      { label: '✏️ 继续创建', action: 'create_more' },
+      { label: '👁️ 查看详情', action: 'view' }
+    ],
+    'UPDATE': [
+      { label: '🔄 再次更新', action: 'update_again' },
+      { label: '👁️ 查看详情', action: 'view' }
+    ],
+    'DELETE': [
+      { label: '↩️ 撤销删除', action: 'undo' },
+      { label: '🗑️ 删除其他', action: 'delete_more' }
+    ],
+    'ANALYZE': [
+      { label: '🔍 查看详细', action: 'view_detail' },
+      { label: '📈 导出报告', action: 'export' }
+    ]
+  }
+  return actionsMap[action] || []
 }
 
 // ========== 辅助函数 ==========
@@ -432,8 +515,40 @@ const fillTemplate = (type) => {
 }
 
 const executeSuggestion = (action) => {
-  // TODO: 执行建议操作
   console.log('Execute suggestion:', action)
+  
+  // 根据动作类型执行不同的操作
+  switch (action.action) {
+    case 'filter':
+      userInput.value = '帮我筛选出高优先级的'
+      break
+    case 'analyze':
+      userInput.value = '显示统计信息'
+      break
+    case 'create_more':
+      userInput.value = '继续创建一个'
+      break
+    case 'view':
+      ElMessage.info('查看功能开发中')
+      break
+    case 'update_again':
+      userInput.value = '再次更新'
+      break
+    case 'undo':
+      ElMessage.warning('撤销功能需要后端支持')
+      break
+    case 'delete_more':
+      userInput.value = '删除另一个工作项'
+      break
+    case 'view_detail':
+      ElMessage.info('详细视图开发中')
+      break
+    case 'export':
+      ElMessage.info('导出功能开发中')
+      break
+    default:
+      console.log('Unknown action:', action)
+  }
 }
 
 const viewWorkItem = (id) => {
@@ -469,7 +584,7 @@ const saveSettings = async () => {
 
 <style scoped lang="scss">
 .agent-chat-container {
-  height: 100vh;
+  height: calc(100vh - 60px); // 减去 header 高度
   display: flex;
   flex-direction: column;
   background: #f5f7fa;
@@ -712,6 +827,163 @@ const saveSettings = async () => {
             border-top: 1px solid #dcdfe6;
             display: flex;
             gap: 8px;
+          }
+        }
+        
+        // 工作项列表卡片
+        .work-item-list-card {
+          margin-top: 12px;
+          border: 1px solid #dcdfe6;
+          border-radius: 8px;
+          overflow: hidden;
+          max-height: 400px;
+          overflow-y: auto;
+          
+          .card-header {
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            
+            .card-title {
+              font-weight: 600;
+              font-size: 14px;
+            }
+          }
+          
+          .card-body {
+            padding: 8px;
+            
+            .list-item {
+              padding: 12px;
+              margin-bottom: 8px;
+              background: #f9fafb;
+              border-radius: 6px;
+              transition: all 0.2s;
+              
+              &:hover {
+                background: #ecf5ff;
+                transform: translateX(4px);
+              }
+              
+              &:last-child {
+                margin-bottom: 0;
+              }
+              
+              .item-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 6px;
+                
+                .item-key {
+                  font-weight: 600;
+                  font-size: 13px;
+                  color: #409eff;
+                }
+              }
+              
+              .item-title {
+                font-size: 14px;
+                color: #303133;
+                margin-bottom: 6px;
+              }
+              
+              .item-meta {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                font-size: 12px;
+                
+                .assignee {
+                  color: #606266;
+                }
+              }
+            }
+          }
+        }
+        
+        // 统计卡片
+        .stats-card {
+          margin-top: 12px;
+          border: 1px solid #dcdfe6;
+          border-radius: 8px;
+          overflow: hidden;
+          
+          .card-header {
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            
+            .card-title {
+              font-weight: 600;
+              font-size: 14px;
+            }
+          }
+          
+          .card-body {
+            padding: 16px;
+            
+            .stat-total {
+              text-align: center;
+              padding: 20px;
+              background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+              border-radius: 8px;
+              margin-bottom: 16px;
+              
+              .total-number {
+                font-size: 48px;
+                font-weight: bold;
+                color: #e74c3c;
+                line-height: 1;
+              }
+              
+              .total-label {
+                font-size: 14px;
+                color: #606266;
+                margin-top: 8px;
+              }
+            }
+            
+            .stat-section {
+              margin-bottom: 16px;
+              
+              &:last-child {
+                margin-bottom: 0;
+              }
+              
+              h4 {
+                font-size: 13px;
+                color: #909399;
+                margin: 0 0 8px 0;
+                font-weight: 600;
+              }
+              
+              .stat-items {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 8px;
+                
+                .stat-item {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  padding: 10px 12px;
+                  background: #f5f7fa;
+                  border-radius: 6px;
+                  
+                  .stat-label {
+                    font-size: 13px;
+                    color: #606266;
+                  }
+                  
+                  .stat-value {
+                    font-size: 16px;
+                    font-weight: bold;
+                    color: #409eff;
+                  }
+                }
+              }
+            }
           }
         }
         

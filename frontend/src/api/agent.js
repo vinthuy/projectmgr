@@ -30,3 +30,13 @@ export const deleteSession = (sessionId) => {
     method: 'delete'
   })
 }
+
+/**
+ * 获取消息历史
+ */
+export const getMessageHistory = (sessionId) => {
+  return request({
+    url: `/agent/sessions/${sessionId}/messages`,
+    method: 'get'
+  })
+}
